@@ -45,16 +45,36 @@ object Command extends App with DebugEnhancedLogging {
 
   val result: Try[FeedBackMessage] = commandLine.subcommands match {
     case commandLine.reportCmd :: (full @ commandLine.reportCmd.fullCmd) :: Nil =>
-      app.createFullReport(full.depositor.toOption)
+      app.collectDataNbrOfNonReadable(full.depositor.toOption)
+      if (app.nbrOfNonreadableCollectDataFromDepositors == 0) {
+        app.createFullReport(full.depositor.toOption)
+      }
+      else Failure(new Exception("a number of " + app.nbrOfNonreadableCollectDataFromDepositors + " files or directories were not readable: " + "\n" + app.out.toString))
+
     case commandLine.reportCmd :: (summary @ commandLine.reportCmd.summaryCmd) :: Nil =>
-      app.summary(summary.depositor.toOption)
+      app.collectDataNbrOfNonReadable(summary.depositor.toOption)
+      if (app.nbrOfNonreadableCollectDataFromDepositors == 0) {
+        app.summary(summary.depositor.toOption)
+      }
+      else Failure(new Exception("a number of " + app.nbrOfNonreadableCollectDataFromDepositors + " files or directories were not readable: " + "\n" + app.out.toString))
+
     case (clean @ commandLine.cleanCmd) :: Nil =>
-      if (cleanInteraction)
-        app.cleanDepositor(clean.depositor.toOption, clean.keep(), clean.state(), clean.dataOnly())
-      else
-        Try { "Clean operation aborted by user" }
+      app.cleanDepositorNbrOfNonReadable(clean.depositor.toOption, clean.keep(), clean.state(), clean.dataOnly())
+      if (app.nbrOfNonreadableDeleteDepositFromDepositsDir == 0) {
+        if (cleanInteraction)
+          app.cleanDepositor(clean.depositor.toOption, clean.keep(), clean.state(), clean.dataOnly())
+        else
+          Try { "Clean operation aborted by user" }
+      }
+      else Failure(new Exception("a number of " + app.nbrOfNonreadableDeleteDepositFromDepositsDir + " files or directories were not readable: " + "\n" + app.out.toString))
+
     case (retry @ commandLine.retryCmd) :: Nil =>
-      app.retryDepositor(retry.depositor.toOption)
+      app.retryDepositorNbrOfNonReadable(retry.depositor.toOption)
+      if (app.nbrOfNonreadableRetryStalledDeposit == 0) {
+        app.retryDepositor(retry.depositor.toOption)
+      }
+      else Failure(new Exception("a number of " + app.nbrOfNonreadableRetryStalledDeposit + " files or directories were not readable: " + "\n" + app.out.toString))
+
     case _ => Failure(new IllegalArgumentException("Enter a valid subcommand"))
   }
 

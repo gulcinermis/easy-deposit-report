@@ -69,8 +69,8 @@ EXAMPLES
 
      easy-manage-deposit report full someUserId
      easy-manage-deposit report summary someUserId
-     easy-manage-deposit report full someUserId
-     easy-manage-deposit report summary someUserId
+     easy-manage-deposit report full 
+     easy-manage-deposit report summary 
      easy-manage-deposit clean someUserId
      easy-manage-deposit clean --data-only --state <state> --keep <n> someUserId
      easy-manage-deposit retry someUserId
