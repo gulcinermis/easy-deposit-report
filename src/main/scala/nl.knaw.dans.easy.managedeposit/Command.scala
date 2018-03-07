@@ -49,12 +49,12 @@ object Command extends App with DebugEnhancedLogging {
     case commandLine.reportCmd :: (summary @ commandLine.reportCmd.summaryCmd) :: Nil =>
       app.summary(summary.depositor.toOption)
     case (clean @ commandLine.cleanCmd) :: Nil =>
-         if (cleanInteraction)
-          app.cleanDepositor(clean.depositor.toOption, clean.keep(), clean.state(), clean.dataOnly())
-        else
-          Try {"Clean operation aborted by user" }
+      if (cleanInteraction)
+        app.cleanDepositor(clean.depositor.toOption, clean.keep(), clean.state(), clean.dataOnly())
+      else
+        Try { "Clean operation aborted by user" }
     case (retry @ commandLine.retryCmd) :: Nil =>
-        app.retryDepositor(retry.depositor.toOption)
+      app.retryDepositor(retry.depositor.toOption)
     case _ => Failure(new IllegalArgumentException("Enter a valid subcommand"))
   }
 

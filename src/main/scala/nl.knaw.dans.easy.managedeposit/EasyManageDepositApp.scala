@@ -103,7 +103,7 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
           else None
         }
     }
-  catch {case e: Exception => throw new Exception(out.toString) }
+    catch { case e: Exception => throw new Exception(out.toString) }
   }
 
   def deleteDepositFromDepositsDir(filterOnDepositor: Option[DepositorId], age: Int, state: String, onlyData: Boolean)(list: List[Path]): Unit = {
@@ -148,24 +148,24 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
             else FileUtils.deleteDirectory(depositDirPath.toFile)
           }
         }
-   } catch {case e: Exception => throw new Exception(out.toString) }
+    } catch { case e: Exception => throw new Exception(out.toString) }
   }
 
   def retryStalledDeposit(filterOnDepositor: Option[DepositorId])(list: List[Path]): Unit = {
     try {
-    list.filter(Files.isDirectory(_))
-      .foreach { depositDirPath =>
+      list.filter(Files.isDirectory(_))
+        .foreach { depositDirPath =>
 
           val depositPropertiesFilePath = depositDirPath.resolve("deposit.properties")
           if (!Files.isReadable(depositDirPath)) {
-           logger.error(s"ERROR: cannot read $depositDirPath")
-           printer.print("cannot read " + depositDirPath + "\n")
-           throw new Exception()
+            logger.error(s"ERROR: cannot read $depositDirPath")
+            printer.print("cannot read " + depositDirPath + "\n")
+            throw new Exception()
           }
           else if (!Files.isReadable(depositPropertiesFilePath)) {
-           logger.error(s"ERROR: cannot read $depositPropertiesFilePath")
-           printer.print("cannot read " + depositPropertiesFilePath + "\n")
-           throw new Exception()
+            logger.error(s"ERROR: cannot read $depositPropertiesFilePath")
+            printer.print("cannot read " + depositPropertiesFilePath + "\n")
+            throw new Exception()
           }
 
           val depositProperties = new PropertiesConfiguration(depositDirPath.resolve("deposit.properties").toFile)
@@ -180,27 +180,27 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
             }
           }
         }
-   } catch {case e: Exception => throw new Exception(out.toString) }
+    } catch { case e: Exception => throw new Exception(out.toString) }
   }
 
   private def getLastModifiedTimestamp(depositDirPath: Path): String = {
-   try {
-     managed(Files.list(depositDirPath)).acquireAndGet { files =>
-       files.forEach(file => if (!Files.isReadable(file.toRealPath())) {
-         var pathOfAZipFileOrPropFileInDepositDirPath = file.toRealPath()
-         logger.error(s"ERROR: cannot read $pathOfAZipFileOrPropFileInDepositDirPath")
-         printer.print("cannot read " + pathOfAZipFileOrPropFileInDepositDirPath + "\n")
-         throw new Exception()
-       }
-       )
-     }
-    managed(Files.list(depositDirPath)).acquireAndGet { files =>
-      files.map[Long](Files.getLastModifiedTime(_).toInstant.toEpochMilli)
-        .max(LongComparator)
-        .map[String](millis => new DateTime(millis, DateTimeZone.UTC).toString(dateTimeFormatter))
-        .orElse("n/a")
-    }
-   } catch {case e: Exception => throw new Exception(out.toString) }
+    try {
+      managed(Files.list(depositDirPath)).acquireAndGet { files =>
+        files.forEach(file => if (!Files.isReadable(file.toRealPath())) {
+          val pathOfAZipFileOrPropFileInDepositDirPath = file.toRealPath()
+          logger.error(s"ERROR: cannot read $pathOfAZipFileOrPropFileInDepositDirPath")
+          printer.print("cannot read " + pathOfAZipFileOrPropFileInDepositDirPath + "\n")
+          throw new Exception()
+        }
+        )
+      }
+      managed(Files.list(depositDirPath)).acquireAndGet { files =>
+        files.map[Long](Files.getLastModifiedTime(_).toInstant.toEpochMilli)
+          .max(LongComparator)
+          .map[String](millis => new DateTime(millis, DateTimeZone.UTC).toString(dateTimeFormatter))
+          .orElse("n/a")
+      }
+    } catch { case e: Exception => throw new Exception(out.toString) }
   }
 
   private def getDoi(depositProperties: PropertiesConfiguration, depositDirPath: Path): Option[String] = {
@@ -215,13 +215,13 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
       Option(depositProperties.getString("identifier.doi")).orElse {
 
         managed(Files.list(depositDirPath)).acquireAndGet { files =>
-        files.forEach(file => if (!Files.isReadable(file.toRealPath())) {
-          var pathOfAZipFileOrPropFileInDepositDirPath = file.toRealPath()
-          logger.error(s"ERROR: cannot read $pathOfAZipFileOrPropFileInDepositDirPath")
-          printer.print("cannot read " + pathOfAZipFileOrPropFileInDepositDirPath + "\n")
-          throw new Exception()
-        }
-        )
+          files.forEach(file => if (!Files.isReadable(file.toRealPath())) {
+            val pathOfAZipFileOrPropFileInDepositDirPath = file.toRealPath()
+            logger.error(s"ERROR: cannot read $pathOfAZipFileOrPropFileInDepositDirPath")
+            printer.print("cannot read " + pathOfAZipFileOrPropFileInDepositDirPath + "\n")
+            throw new Exception()
+          }
+          )
         }
 
         managed(Files.list(depositDirPath)).acquireAndGet { files =>
@@ -252,7 +252,7 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
             }
         }
       }
-    } catch {case e: Exception => throw new Exception(out.toString) }
+    } catch { case e: Exception => throw new Exception(out.toString) }
   }
 
   private def findDoi(identifiers: NodeSeq): Option[String] = {
@@ -268,56 +268,56 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
   }
 
   private def outputSummary(deposits: Deposits, depositor: Option[DepositorId] = None): Unit = {
-      val selectedDeposits = depositor.map(d => deposits.filter(_.depositor == d)).getOrElse(deposits)
-      val draft = selectedDeposits.filter(_.state == "DRAFT").toList
-      val invalid = selectedDeposits.filter(_.state == "INVALID").toList
-      val finalizing = selectedDeposits.filter(_.state == "FINALIZING").toList
-      val submitted = selectedDeposits.filter(_.state == "SUBMITTED").toList
-      val archived = selectedDeposits.filter(_.state == "ARCHIVED").toList
-      val rejected = selectedDeposits.filter(_.state == "REJECTED").toList
-      val failed = selectedDeposits.filter(_.state == "FAILED").toList
+    val selectedDeposits = depositor.map(d => deposits.filter(_.depositor == d)).getOrElse(deposits)
+    val draft = selectedDeposits.filter(_.state == "DRAFT").toList
+    val invalid = selectedDeposits.filter(_.state == "INVALID").toList
+    val finalizing = selectedDeposits.filter(_.state == "FINALIZING").toList
+    val submitted = selectedDeposits.filter(_.state == "SUBMITTED").toList
+    val archived = selectedDeposits.filter(_.state == "ARCHIVED").toList
+    val rejected = selectedDeposits.filter(_.state == "REJECTED").toList
+    val failed = selectedDeposits.filter(_.state == "FAILED").toList
 
-      val now = Calendar.getInstance().getTime
-      val format = new SimpleDateFormat("yyyy-MM-dd")
-      val currentTime = format.format(now)
+    val now = Calendar.getInstance().getTime
+    val format = new SimpleDateFormat("yyyy-MM-dd")
+    val currentTime = format.format(now)
 
-      println("Grand totals:")
-      println("-------------")
-      println(s"Timestamp          : $currentTime")
-      println(f"Number of deposits : ${ selectedDeposits.size }%10d")
-      println(s"Total space        : ${ formatStorageSize(selectedDeposits.map(_.storageSpace).sum) }")
-      println()
-      println("Per state:")
-      println("----------")
-      println(formatCountAndSize(draft, "DRAFT"))
-      println(formatCountAndSize(invalid, "INVALID"))
-      println(formatCountAndSize(finalizing, "FINALIZING"))
-      println(formatCountAndSize(submitted, "SUBMITTED"))
-      println(formatCountAndSize(archived, "ARCHIVED"))
-      println(formatCountAndSize(rejected, "REJECTED"))
-      println(formatCountAndSize(failed, "FAILED"))
-      println()
+    println("Grand totals:")
+    println("-------------")
+    println(s"Timestamp          : $currentTime")
+    println(f"Number of deposits : ${ selectedDeposits.size }%10d")
+    println(s"Total space        : ${ formatStorageSize(selectedDeposits.map(_.storageSpace).sum) }")
+    println()
+    println("Per state:")
+    println("----------")
+    println(formatCountAndSize(draft, "DRAFT"))
+    println(formatCountAndSize(invalid, "INVALID"))
+    println(formatCountAndSize(finalizing, "FINALIZING"))
+    println(formatCountAndSize(submitted, "SUBMITTED"))
+    println(formatCountAndSize(archived, "ARCHIVED"))
+    println(formatCountAndSize(rejected, "REJECTED"))
+    println(formatCountAndSize(failed, "FAILED"))
+    println()
   }
 
   private def outputFullReport(deposits: Deposits): Unit = {
-      val csvFormat: CSVFormat = CSVFormat.RFC4180
-        .withHeader("DEPOSITOR", "DEPOSIT_ID", "DEPOSIT_STATE", "DOI", "DEPOSIT_CREATION_TIMESTAMP",
-          "DEPOSIT_UPDATE_TIMESTAMP", "DESCRIPTION", "NBR_OF_CONTINUED_DEPOSITS", "STORAGE_IN_BYTES")
-        .withDelimiter(',')
-        .withRecordSeparator('\n')
-      val printer = csvFormat.print(Console.out)
-      deposits.sortBy(_.creationTimestamp) foreach { deposit =>
-        printer.printRecord(
-          deposit.depositor,
-          deposit.depositId,
-          deposit.state,
-          deposit.doi.getOrElse("n/a"),
-          deposit.creationTimestamp,
-          deposit.lastModified,
-          deposit.description,
-          deposit.numberOfContinuedDeposits.toString,
-          deposit.storageSpace.toString)
-      }
+    val csvFormat: CSVFormat = CSVFormat.RFC4180
+      .withHeader("DEPOSITOR", "DEPOSIT_ID", "DEPOSIT_STATE", "DOI", "DEPOSIT_CREATION_TIMESTAMP",
+        "DEPOSIT_UPDATE_TIMESTAMP", "DESCRIPTION", "NBR_OF_CONTINUED_DEPOSITS", "STORAGE_IN_BYTES")
+      .withDelimiter(',')
+      .withRecordSeparator('\n')
+    val printer = csvFormat.print(Console.out)
+    deposits.sortBy(_.creationTimestamp) foreach { deposit =>
+      printer.printRecord(
+        deposit.depositor,
+        deposit.depositId,
+        deposit.state,
+        deposit.doi.getOrElse("n/a"),
+        deposit.creationTimestamp,
+        deposit.lastModified,
+        deposit.description,
+        deposit.numberOfContinuedDeposits.toString,
+        deposit.storageSpace.toString)
+    }
   }
 
   printer.flush()
