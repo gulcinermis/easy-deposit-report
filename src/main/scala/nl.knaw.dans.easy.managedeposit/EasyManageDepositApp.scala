@@ -22,7 +22,7 @@ import java.util.Calendar
 import nl.knaw.dans.lib.error._
 import nl.knaw.dans.lib.logging.DebugEnhancedLogging
 import org.apache.commons.configuration.PropertiesConfiguration
-import org.apache.commons.csv.{ CSVFormat, CSVPrinter }
+import org.apache.commons.csv.CSVFormat
 import org.apache.commons.io.FileUtils
 import org.joda.time.{ DateTime, DateTimeZone, Duration }
 import resource.managed
@@ -30,7 +30,7 @@ import resource.managed
 import scala.collection.JavaConverters._
 import scala.language.postfixOps
 import scala.math.Ordering.{ Long => LongComparator }
-import scala.util.{ Failure, Success, Try }
+import scala.util.Try
 import scala.xml.{ NodeSeq, XML }
 
 class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLogging {
@@ -42,9 +42,9 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
   private val sword2DepositsDir = Paths.get(configuration.properties.getString("easy-sword2"))
   private val ingestFlowInbox = Paths.get(configuration.properties.getString("easy-ingest-flow-inbox"))
 
-  val csvFormat: CSVFormat = CSVFormat.RFC4180
-  val out: Appendable = new StringBuffer()
-  val printer: CSVPrinter = csvFormat.print(out)
+  //val csvFormat: CSVFormat = CSVFormat.RFC4180
+ // val out: Appendable = new StringBuffer()
+ // val printer: CSVPrinter = csvFormat.print(out)
 
   private val end = DateTime.now(DateTimeZone.UTC)
 
@@ -61,49 +61,40 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
   }
 
   private def collectDataFromDepositsDir(filterOnDepositor: Option[DepositorId])(deposits: List[Path]): Deposits = {
-    //try {
-
     trace(filterOnDepositor)
     deposits.filter(Files.isDirectory(_))
       .flatMap { depositDirPath =>
+
         val depositPropertiesFilePath = depositDirPath.resolve("deposit.properties")
         debug(s"Getting info from $depositDirPath")
 
-        Try {
-          if (!Files.isReadable(depositDirPath)) {
-            logger.error(s"ERROR: cannot read $depositDirPath")
-            printer.print("cannot read " + depositDirPath + "\n")
-            throw new Exception()
-          }
-          else if (!Files.isReadable(depositPropertiesFilePath)) {
-            logger.error(s"ERROR: cannot read $depositPropertiesFilePath")
-            printer.print("cannot read " + depositPropertiesFilePath + "\n")
-            throw new Exception()
-          }
+        if (!Files.isReadable(depositDirPath)) {
+          logger.error(s"ERROR: cannot read $depositDirPath")
+          throw new Exception("cannot read " + depositDirPath + "\n")
         }
-        match {
-          case Success(_) => {
-            val depositId = depositDirPath.getFileName.toString
-            val depositProperties = new PropertiesConfiguration(depositPropertiesFilePath.toFile)
-            val depositorId = depositProperties.getString("depositor.userId")
-            // forall returns true for the empty set, see https://en.wikipedia.org/wiki/Vacuous_truth
-            if (filterOnDepositor.forall(depositorId ==)) Some {
-              Deposit(
-                depositId = depositId,
-                doi = getDoi(depositProperties, depositDirPath),
-                depositorId,
-                state = depositProperties.getString("state.label"),
-                description = depositProperties.getString("state.description"),
-                creationTimestamp = Option(depositProperties.getString("creation.timestamp")).getOrElse("n/a"),
-                depositDirPath.list(_.count(_.getFileName.toString.matches("""^.*\.zip\.\d+$"""))),
-                storageSpace = FileUtils.sizeOfDirectory(depositDirPath.toFile),
-                lastModified = getLastModifiedTimestamp(depositDirPath)
-              )
-            }
-            else None
-          }
-          case Failure(_) => throw new Exception(out.toString)
+        else if (!Files.isReadable(depositPropertiesFilePath)) {
+          logger.error(s"ERROR: cannot read $depositPropertiesFilePath")
+          throw new Exception("cannot read " + depositDirPath + "\n")
         }
+
+        val depositId = depositDirPath.getFileName.toString
+        val depositProperties = new PropertiesConfiguration(depositPropertiesFilePath.toFile)
+        val depositorId = depositProperties.getString("depositor.userId")
+        // forall returns true for the empty set, see https://en.wikipedia.org/wiki/Vacuous_truth
+        if (filterOnDepositor.forall(depositorId ==)) Some {
+          Deposit(
+            depositId = depositId,
+            doi = getDoi(depositProperties, depositDirPath),
+            depositorId,
+            state = depositProperties.getString("state.label"),
+            description = depositProperties.getString("state.description"),
+            creationTimestamp = Option(depositProperties.getString("creation.timestamp")).getOrElse("n/a"),
+            depositDirPath.list(_.count(_.getFileName.toString.matches("""^.*\.zip\.\d+$"""))),
+            storageSpace = FileUtils.sizeOfDirectory(depositDirPath.toFile),
+            lastModified = getLastModifiedTimestamp(depositDirPath)
+          )
+        }
+        else None
       }
   }
 
@@ -111,51 +102,38 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
   def deleteDepositFromDepositsDir(filterOnDepositor: Option[DepositorId], age: Int, state: String, onlyData: Boolean)(list: List[Path]): Unit = {
     list.filter(Files.isDirectory(_))
       .foreach { depositDirPath =>
-        Try {
-          val depositPropertiesFilePath = depositDirPath.resolve("deposit.properties")
-          if (!Files.isReadable(depositDirPath)) {
-            logger.error(s"ERROR: cannot read $depositDirPath")
-            printer.print("cannot read " + depositDirPath + "\n")
-            throw new Exception()
-          }
-          else if (!Files.isReadable(depositPropertiesFilePath)) {
-            logger.error(s"ERROR: cannot read $depositPropertiesFilePath")
-            printer.print("cannot read " + depositPropertiesFilePath + "\n")
-            throw new Exception()
-          }
-        } match {
-          case Success(_) => {
-            val depositProperties: PropertiesConfiguration = new PropertiesConfiguration(depositDirPath.resolve("deposit.properties").toFile)
-            val depositorId = depositProperties.getString("depositor.userId")
-            val creationTime = depositProperties.getString("creation.timestamp")
-            val depositState = depositProperties.getString("state.label")
-            val start = new DateTime(creationTime)
-            val duration = new Duration(start, end)
-            val depositAge = duration.getStandardDays
+        val depositPropertiesFilePath = depositDirPath.resolve("deposit.properties")
+        if (!Files.isReadable(depositDirPath)) {
+          logger.error(s"ERROR: cannot read $depositDirPath")
+          throw new Exception("cannot read " + depositDirPath + "\n")
+        }
+        else if (!Files.isReadable(depositPropertiesFilePath)) {
+          logger.error(s"ERROR: cannot read $depositPropertiesFilePath")
+          throw new Exception("cannot read " + depositPropertiesFilePath + "\n")
+        }
 
-            // forall returns true for the empty set, see https://en.wikipedia.org/wiki/Vacuous_truth
-            if (filterOnDepositor.forall(depositorId ==) && depositAge > age && depositState == state) {
-              if (onlyData) {
-                for (file <- depositDirPath.toFile.listFiles(); if file.getName != "deposit.properties") {
-                  //TODO Is the following readability check required here ??
-                  Try {
-                    if (!Files.isReadable(file.toPath)) {
-                      val filePath = file.toPath
-                      logger.error(s"ERROR: cannot read $filePath")
-                      printer.print("cannot read " + filePath + "\n")
-                      throw new Exception()
-                    }
-                  } match {
-                    case Success(_) => FileUtils.deleteDirectory(file)
-                    case Failure(_) => throw new Exception(out.toString)
-                  }
+        val depositProperties: PropertiesConfiguration = new PropertiesConfiguration(depositDirPath.resolve("deposit.properties").toFile)
+        val depositorId = depositProperties.getString("depositor.userId")
+        val creationTime = depositProperties.getString("creation.timestamp")
+        val depositState = depositProperties.getString("state.label")
+        val start = new DateTime(creationTime)
+        val duration = new Duration(start, end)
+        val depositAge = duration.getStandardDays
 
+        // forall returns true for the empty set, see https://en.wikipedia.org/wiki/Vacuous_truth
+        if (filterOnDepositor.forall(depositorId ==) && depositAge > age && depositState == state) {
+          if (onlyData) {
+            for (file <- depositDirPath.toFile.listFiles(); if file.getName != "deposit.properties") {
+              //TODO Is the following readability check required here ??
+                if (!Files.isReadable(file.toPath)) {
+                  val filePath = file.toPath
+                  logger.error(s"ERROR: cannot read $filePath")
+                  throw new Exception("cannot read " + filePath + "\n")
                 }
-              }
-              else FileUtils.deleteDirectory(depositDirPath.toFile)
+                FileUtils.deleteDirectory(file)
             }
           }
-          case Failure(_) => throw new Exception(out.toString)
+          else FileUtils.deleteDirectory(depositDirPath.toFile)
         }
       }
   }
@@ -163,113 +141,92 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
   def retryStalledDeposit(filterOnDepositor: Option[DepositorId])(list: List[Path]): Unit = {
     list.filter(Files.isDirectory(_))
       .foreach { depositDirPath =>
-        Try {
-          val depositPropertiesFilePath = depositDirPath.resolve("deposit.properties")
-          if (!Files.isReadable(depositDirPath)) {
-            logger.error(s"ERROR: cannot read $depositDirPath")
-            printer.print("cannot read " + depositDirPath + "\n")
-            throw new Exception()
-          }
-          else if (!Files.isReadable(depositPropertiesFilePath)) {
-            logger.error(s"ERROR: cannot read $depositPropertiesFilePath")
-            printer.print("cannot read " + depositPropertiesFilePath + "\n")
-            throw new Exception()
-          }
-        } match {
-          case Success(_) => {
-            val depositProperties = new PropertiesConfiguration(depositDirPath.resolve("deposit.properties").toFile)
-            val depositorId = depositProperties.getString("depositor.userId")
-            val depositState = depositProperties.getString("state.label")
+        val depositPropertiesFilePath = depositDirPath.resolve("deposit.properties")
+        if (!Files.isReadable(depositDirPath)) {
+          logger.error(s"ERROR: cannot read $depositDirPath")
+          throw new Exception("cannot read " + depositDirPath + "\n")
+        }
+        else if (!Files.isReadable(depositPropertiesFilePath)) {
+          logger.error(s"ERROR: cannot read $depositPropertiesFilePath")
+          throw new Exception("cannot read " + depositPropertiesFilePath + "\n")
+        }
+        val depositProperties = new PropertiesConfiguration(depositDirPath.resolve("deposit.properties").toFile)
+        val depositorId = depositProperties.getString("depositor.userId")
+        val depositState = depositProperties.getString("state.label")
 
-            // forall returns true for the empty set, see https://en.wikipedia.org/wiki/Vacuous_truth
-            if (filterOnDepositor.forall(depositorId ==)) {
-              if (depositState == "STALLED") {
-                depositProperties.setProperty("state.label", "SUBMITTED")
-                depositProperties.save()
-              }
-            }
+        // forall returns true for the empty set, see https://en.wikipedia.org/wiki/Vacuous_truth
+        if (filterOnDepositor.forall(depositorId ==)) {
+          if (depositState == "STALLED") {
+            depositProperties.setProperty("state.label", "SUBMITTED")
+            depositProperties.save()
           }
-          case Failure(_) => throw new Exception(out.toString)
         }
       }
   }
 
   private def getLastModifiedTimestamp(depositDirPath: Path): String = {
-    Try {
-      managed(Files.list(depositDirPath)).acquireAndGet { files =>
-        files.forEach(file => if (!Files.isReadable(file.toRealPath())) {
-          val pathOfAZipFileOrPropFileInDepositDirPath = file.toRealPath()
-          logger.error(s"ERROR: cannot read $pathOfAZipFileOrPropFileInDepositDirPath")
-          printer.print("cannot read " + pathOfAZipFileOrPropFileInDepositDirPath + "\n")
-          throw new Exception()
-        }
-        )
+    if (!Files.isReadable(depositDirPath)) {
+      logger.error(s"ERROR: cannot read $depositDirPath")
+      throw new Exception("cannot read " + depositDirPath + "\n")
+    }
+    managed(Files.list(depositDirPath)).acquireAndGet { files =>
+      files.forEach(file => if (!Files.isReadable(file.toRealPath())) {
+        val pathOfAZipFileOrPropFileInDepositDirPath = file.toRealPath()
+        logger.error(s"ERROR: cannot read $pathOfAZipFileOrPropFileInDepositDirPath")
+        throw new Exception("cannot read " + pathOfAZipFileOrPropFileInDepositDirPath + "\n")
       }
-    } match {
-      case Success(_) => {
-        managed(Files.list(depositDirPath)).acquireAndGet { files =>
-          files.map[Long](Files.getLastModifiedTime(_).toInstant.toEpochMilli)
-            .max(LongComparator)
-            .map[String](millis => new DateTime(millis, DateTimeZone.UTC).toString(dateTimeFormatter))
-            .orElse("n/a")
-        }
-      }
-      case Failure(_) => throw new Exception(out.toString)
+      )
+    }
+    managed(Files.list(depositDirPath)).acquireAndGet { files =>
+      files.map[Long](Files.getLastModifiedTime(_).toInstant.toEpochMilli)
+        .max(LongComparator)
+        .map[String](millis => new DateTime(millis, DateTimeZone.UTC).toString(dateTimeFormatter))
+        .orElse("n/a")
     }
   }
 
   private def getDoi(depositProperties: PropertiesConfiguration, depositDirPath: Path): Option[String] = {
-    Try {
-      if (!Files.isReadable(depositDirPath)) {
-        logger.error(s"ERROR: cannot read $depositDirPath")
-        printer.print("cannot read " + depositDirPath + "\n")
-        throw new Exception()
+    if (!Files.isReadable(depositDirPath)) {
+      logger.error(s"ERROR: cannot read $depositDirPath")
+      throw new Exception("cannot read " + depositDirPath + "\n")
+    }
+    managed(Files.list(depositDirPath)).acquireAndGet { files =>
+      files.forEach(file => if (!Files.isReadable(file.toRealPath())) {
+        val pathOfAZipFileOrPropFileInDepositDirPath = file.toRealPath()
+        logger.error(s"ERROR: cannot read $pathOfAZipFileOrPropFileInDepositDirPath")
+        throw new Exception("cannot read " + pathOfAZipFileOrPropFileInDepositDirPath + "\n")
       }
-      managed(Files.list(depositDirPath)).acquireAndGet { files =>
-        files.forEach(file => if (!Files.isReadable(file.toRealPath())) {
-          val pathOfAZipFileOrPropFileInDepositDirPath = file.toRealPath()
-          logger.error(s"ERROR: cannot read $pathOfAZipFileOrPropFileInDepositDirPath")
-          printer.print("cannot read " + pathOfAZipFileOrPropFileInDepositDirPath + "\n")
-          throw new Exception()
+      )
+    }
+    managed(Files.list(depositDirPath)).acquireAndGet { files =>
+      files.iterator().asScala.toStream
+        .collectFirst { case bagDir if Files.isDirectory(bagDir) =>
+          if (!Files.isReadable(bagDir)) {
+            logger.error(s"ERROR: cannot read $bagDir")
+            throw new Exception("cannot read " + bagDir + "\n")
+          }
+          if (Files.isReadable(bagDir)) {
+            if (!Files.isReadable(bagDir.resolve("metadata/dataset.xml"))) {
+              val pathOfDatasetXml = bagDir.resolve("metadata/dataset.xml")
+              logger.error(s"ERROR: cannot read $pathOfDatasetXml")
+              throw new Exception("cannot read " + pathOfDatasetXml + "\n")
+            }
+          }
         }
-        )
-      }
+    }
+    Option(depositProperties.getString("identifier.doi")).orElse {
       managed(Files.list(depositDirPath)).acquireAndGet { files =>
         files.iterator().asScala.toStream
           .collectFirst { case bagDir if Files.isDirectory(bagDir) =>
-            if (!Files.isReadable(bagDir)) {
-              logger.error(s"ERROR: cannot read $bagDir")
-              printer.print("cannot read " + bagDir + "\n")
-              throw new Exception()
-            }
-            if (Files.isReadable(bagDir)) {
-              if (!Files.isReadable(bagDir.resolve("metadata/dataset.xml"))) {
-                val pathOfDatasetXml = bagDir.resolve("metadata/dataset.xml")
-                logger.error(s"ERROR: cannot read $pathOfDatasetXml")
-                printer.print("cannot read " + pathOfDatasetXml + "\n")
-                throw new Exception()
-              }
-            }
+            bagDir.resolve("metadata/dataset.xml")
           }
-      }
-    } match {
-      case Failure(_) => throw new Exception(out.toString)
-      case Success(_) => {
-        Option(depositProperties.getString("identifier.doi")).orElse {
-          managed(Files.list(depositDirPath)).acquireAndGet { files =>
-            files.iterator().asScala.toStream
-              .collectFirst { case bagDir if Files.isDirectory(bagDir) =>
-                bagDir.resolve("metadata/dataset.xml")
-              }
-              .flatMap {
-                case datasetXml if Files.exists(datasetXml) => Try {
-                  val docElement = XML.loadFile(datasetXml.toFile)
-                  findDoi(docElement \\ "dcmiMetadata" \\ "identifier")
-                }.getOrElse(None)
-                case _ => None
-              }
+          .flatMap {
+            case datasetXml if Files.exists(datasetXml) => Try {
+              val docElement = XML.loadFile(datasetXml.toFile)
+              findDoi(docElement \\ "dcmiMetadata" \\ "identifier")
+            }.getOrElse(None)
+            case _ => None
           }
-        }
       }
     }
   }
@@ -340,7 +297,7 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
     }
   }
 
-  printer.flush()
+
 
   private def formatStorageSize(nBytes: Long): String = {
     def formatSize(unitSize: Long, unit: String): String = {
