@@ -69,6 +69,8 @@ EXAMPLES
 
      easy-manage-deposit report full someUserId
      easy-manage-deposit report summary someUserId
+     easy-manage-deposit report full 
+     easy-manage-deposit report summary 
      easy-manage-deposit report full -a 0 someUserId
      easy-manage-deposit report summary --age 2 someUserId
      easy-manage-deposit clean someUserId
