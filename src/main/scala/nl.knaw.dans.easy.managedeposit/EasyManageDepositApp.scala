@@ -41,11 +41,7 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
 
   private val sword2DepositsDir = Paths.get(configuration.properties.getString("easy-sword2"))
   private val ingestFlowInbox = Paths.get(configuration.properties.getString("easy-ingest-flow-inbox"))
-
-  //val csvFormat: CSVFormat = CSVFormat.RFC4180
- // val out: Appendable = new StringBuffer()
- // val printer: CSVPrinter = csvFormat.print(out)
-
+  
   private val end = DateTime.now(DateTimeZone.UTC)
 
   private def collectDataFromDepositsDir(depositsDir: Path, filterOnDepositor: Option[DepositorId]): Deposits = {
@@ -80,6 +76,8 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
         val depositId = depositDirPath.getFileName.toString
         val depositProperties = new PropertiesConfiguration(depositPropertiesFilePath.toFile)
         val depositorId = depositProperties.getString("depositor.userId")
+
+
         // forall returns true for the empty set, see https://en.wikipedia.org/wiki/Vacuous_truth
         if (filterOnDepositor.forall(depositorId ==)) Some {
           Deposit(
