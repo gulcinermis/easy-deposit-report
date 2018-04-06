@@ -56,6 +56,9 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
     depositsDir.list(retryStalledDeposit(filterOnDepositor))
   }
 
+  case class NotReadableException(path: Path, cause: Throwable = null)
+    extends Exception(s"""cannot read $path""", cause)
+
   private def collectDataFromDepositsDir(filterOnDepositor: Option[DepositorId])(deposits: List[Path]): Deposits = {
     trace(filterOnDepositor)
     deposits.filter(Files.isDirectory(_))
@@ -66,11 +69,11 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
 
         if (!Files.isReadable(depositDirPath)) {
           logger.error(s"ERROR: cannot read $depositDirPath")
-          throw new Exception("cannot read " + depositDirPath + "\n")
+          throw new NotReadableException(depositDirPath)
         }
         else if (!Files.isReadable(depositPropertiesFilePath)) {
           logger.error(s"ERROR: cannot read $depositPropertiesFilePath")
-          throw new Exception("cannot read " + depositDirPath + "\n")
+          throw new NotReadableException(depositPropertiesFilePath)
         }
 
         val depositId = depositDirPath.getFileName.toString
@@ -103,11 +106,11 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
         val depositPropertiesFilePath = depositDirPath.resolve("deposit.properties")
         if (!Files.isReadable(depositDirPath)) {
           logger.error(s"ERROR: cannot read $depositDirPath")
-          throw new Exception("cannot read " + depositDirPath + "\n")
+          throw new NotReadableException(depositDirPath)
         }
         else if (!Files.isReadable(depositPropertiesFilePath)) {
           logger.error(s"ERROR: cannot read $depositPropertiesFilePath")
-          throw new Exception("cannot read " + depositPropertiesFilePath + "\n")
+          throw new NotReadableException(depositPropertiesFilePath)
         }
 
         val depositProperties: PropertiesConfiguration = new PropertiesConfiguration(depositDirPath.resolve("deposit.properties").toFile)
@@ -126,7 +129,7 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
                 if (!Files.isReadable(file.toPath)) {
                   val filePath = file.toPath
                   logger.error(s"ERROR: cannot read $filePath")
-                  throw new Exception("cannot read " + filePath + "\n")
+                  throw new NotReadableException(filePath)
                 }
                 FileUtils.deleteDirectory(file)
             }
@@ -142,11 +145,11 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
         val depositPropertiesFilePath = depositDirPath.resolve("deposit.properties")
         if (!Files.isReadable(depositDirPath)) {
           logger.error(s"ERROR: cannot read $depositDirPath")
-          throw new Exception("cannot read " + depositDirPath + "\n")
+          throw new NotReadableException(depositDirPath)
         }
         else if (!Files.isReadable(depositPropertiesFilePath)) {
           logger.error(s"ERROR: cannot read $depositPropertiesFilePath")
-          throw new Exception("cannot read " + depositPropertiesFilePath + "\n")
+          throw new NotReadableException(depositPropertiesFilePath)
         }
         val depositProperties = new PropertiesConfiguration(depositDirPath.resolve("deposit.properties").toFile)
         val depositorId = depositProperties.getString("depositor.userId")
@@ -165,13 +168,13 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
   private def getLastModifiedTimestamp(depositDirPath: Path): String = {
     if (!Files.isReadable(depositDirPath)) {
       logger.error(s"ERROR: cannot read $depositDirPath")
-      throw new Exception("cannot read " + depositDirPath + "\n")
+      throw new NotReadableException(depositDirPath)
     }
     managed(Files.list(depositDirPath)).acquireAndGet { files =>
       files.forEach(file => if (!Files.isReadable(file.toRealPath())) {
         val pathOfAZipFileOrPropFileInDepositDirPath = file.toRealPath()
         logger.error(s"ERROR: cannot read $pathOfAZipFileOrPropFileInDepositDirPath")
-        throw new Exception("cannot read " + pathOfAZipFileOrPropFileInDepositDirPath + "\n")
+        throw new NotReadableException(pathOfAZipFileOrPropFileInDepositDirPath)
       }
       )
     }
@@ -186,13 +189,13 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
   private def getDoi(depositProperties: PropertiesConfiguration, depositDirPath: Path): Option[String] = {
     if (!Files.isReadable(depositDirPath)) {
       logger.error(s"ERROR: cannot read $depositDirPath")
-      throw new Exception("cannot read " + depositDirPath + "\n")
+      throw new NotReadableException(depositDirPath)
     }
     managed(Files.list(depositDirPath)).acquireAndGet { files =>
       files.forEach(file => if (!Files.isReadable(file.toRealPath())) {
         val pathOfAZipFileOrPropFileInDepositDirPath = file.toRealPath()
         logger.error(s"ERROR: cannot read $pathOfAZipFileOrPropFileInDepositDirPath")
-        throw new Exception("cannot read " + pathOfAZipFileOrPropFileInDepositDirPath + "\n")
+        throw new NotReadableException(pathOfAZipFileOrPropFileInDepositDirPath)
       }
       )
     }
@@ -201,13 +204,13 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
         .collectFirst { case bagDir if Files.isDirectory(bagDir) =>
           if (!Files.isReadable(bagDir)) {
             logger.error(s"ERROR: cannot read $bagDir")
-            throw new Exception("cannot read " + bagDir + "\n")
+            throw new NotReadableException(bagDir)
           }
           if (Files.isReadable(bagDir)) {
             if (!Files.isReadable(bagDir.resolve("metadata/dataset.xml"))) {
               val pathOfDatasetXml = bagDir.resolve("metadata/dataset.xml")
               logger.error(s"ERROR: cannot read $pathOfDatasetXml")
-              throw new Exception("cannot read " + pathOfDatasetXml + "\n")
+              throw new NotReadableException(pathOfDatasetXml)
             }
           }
         }
