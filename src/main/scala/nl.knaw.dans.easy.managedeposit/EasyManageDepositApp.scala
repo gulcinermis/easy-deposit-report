@@ -19,7 +19,6 @@ import java.nio.file.{ Files, Path, Paths }
 import java.text.SimpleDateFormat
 import java.util.Calendar
 
-import nl.knaw.dans.lib.error._
 import nl.knaw.dans.lib.logging.DebugEnhancedLogging
 import org.apache.commons.configuration.PropertiesConfiguration
 import org.apache.commons.csv.CSVFormat
@@ -41,11 +40,11 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
 
   private val sword2DepositsDir = Paths.get(configuration.properties.getString("easy-sword2"))
   private val ingestFlowInbox = Paths.get(configuration.properties.getString("easy-ingest-flow-inbox"))
-  
+
   private val end = DateTime.now(DateTimeZone.UTC)
 
-  private def collectDataFromDepositsDir(depositsDir: Path, filterOnDepositor: Option[DepositorId]): Deposits = {
-    depositsDir.list(collectDataFromDepositsDir(filterOnDepositor))
+  private def collectDataFromDepositsDir(depositsDir: Path, filterOnDepositor: Option[DepositorId], filterOnAge: Option[Age]): Deposits = {
+    depositsDir.list(collectDataFromDepositsDir(filterOnDepositor, filterOnAge))
   }
 
   def deleteDepositFromDepositsDir(depositsDir: Path, filterOnDepositor: Option[DepositorId], age: Int, state: String, onlyData: Boolean): Unit = {
@@ -56,10 +55,18 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
     depositsDir.list(retryStalledDeposit(filterOnDepositor))
   }
 
+  private def readDepositProperties(depositDir: Path): PropertiesConfiguration = {
+    new PropertiesConfiguration() {
+      setDelimiterParsingDisabled(true)
+      load(depositDir.resolve("deposit.properties").toFile)
+    }
+  }
+
   case class NotReadableException(path: Path, cause: Throwable = null)
     extends Exception(s"""cannot read $path""", cause)
 
-  private def collectDataFromDepositsDir(filterOnDepositor: Option[DepositorId])(deposits: List[Path]): Deposits = {
+
+  private def collectDataFromDepositsDir(filterOnDepositor: Option[DepositorId], filterOnAge: Option[Age])(deposits: List[Path]): Deposits = {
     trace(filterOnDepositor)
     deposits.filter(Files.isDirectory(_))
       .flatMap { depositDirPath =>
@@ -76,13 +83,18 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
           throw new NotReadableException(depositPropertiesFilePath)
         }
 
-        val depositId = depositDirPath.getFileName.toString
-        val depositProperties = new PropertiesConfiguration(depositPropertiesFilePath.toFile)
+        debug(s"Getting info from $depositDirPath")
+        val depositProperties = readDepositProperties(depositDirPath)
+        val depositId = depositProperties.getString("bag-store.bag-id")
         val depositorId = depositProperties.getString("depositor.userId")
 
+        lazy val lastModified: Option[DateTime] = getLastModifiedTimestamp(depositDirPath)
 
         // forall returns true for the empty set, see https://en.wikipedia.org/wiki/Vacuous_truth
-        if (filterOnDepositor.forall(depositorId ==)) Some {
+        val hasDepositor = filterOnDepositor.forall(depositorId ==)
+        lazy val shouldReport = filterOnAge.forall(age => lastModified.forall(mod => Duration.millis(DateTime.now(mod.getZone).getMillis - mod.getMillis).getStandardDays <= age))
+
+        if (hasDepositor && shouldReport) Some {
           Deposit(
             depositId = depositId,
             doi = getDoi(depositProperties, depositDirPath),
@@ -92,13 +104,12 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
             creationTimestamp = Option(depositProperties.getString("creation.timestamp")).getOrElse("n/a"),
             depositDirPath.list(_.count(_.getFileName.toString.matches("""^.*\.zip\.\d+$"""))),
             storageSpace = FileUtils.sizeOfDirectory(depositDirPath.toFile),
-            lastModified = getLastModifiedTimestamp(depositDirPath)
+            lastModified = lastModified.map(_.toString(dateTimeFormatter)).getOrElse("n/a")
           )
         }
         else None
       }
   }
-
 
   def deleteDepositFromDepositsDir(filterOnDepositor: Option[DepositorId], age: Int, state: String, onlyData: Boolean)(list: List[Path]): Unit = {
     list.filter(Files.isDirectory(_))
@@ -113,7 +124,7 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
           throw new NotReadableException(depositPropertiesFilePath)
         }
 
-        val depositProperties: PropertiesConfiguration = new PropertiesConfiguration(depositDirPath.resolve("deposit.properties").toFile)
+        val depositProperties = readDepositProperties(depositDirPath)
         val depositorId = depositProperties.getString("depositor.userId")
         val creationTime = depositProperties.getString("creation.timestamp")
         val depositState = depositProperties.getString("state.label")
@@ -131,10 +142,14 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
                   logger.error(s"ERROR: cannot read $filePath")
                   throw new NotReadableException(filePath)
                 }
-                FileUtils.deleteDirectory(file)
+              logger.info(s"DELETE data from deposit for $depositorId from $depositState $depositDirPath")
+              FileUtils.deleteDirectory(file)
             }
           }
-          else FileUtils.deleteDirectory(depositDirPath.toFile)
+          else {
+            logger.info(s"DELETE deposit for $depositorId from $depositState $depositDirPath")
+            FileUtils.deleteDirectory(depositDirPath.toFile)
+          }
         }
       }
   }
@@ -151,13 +166,14 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
           logger.error(s"ERROR: cannot read $depositPropertiesFilePath")
           throw new NotReadableException(depositPropertiesFilePath)
         }
-        val depositProperties = new PropertiesConfiguration(depositDirPath.resolve("deposit.properties").toFile)
+        val depositProperties = readDepositProperties(depositDirPath)
         val depositorId = depositProperties.getString("depositor.userId")
         val depositState = depositProperties.getString("state.label")
 
         // forall returns true for the empty set, see https://en.wikipedia.org/wiki/Vacuous_truth
         if (filterOnDepositor.forall(depositorId ==)) {
           if (depositState == "STALLED") {
+            logger.info(s"RESET to SUBMITTED for $depositorId on $depositDirPath")
             depositProperties.setProperty("state.label", "SUBMITTED")
             depositProperties.save()
           }
@@ -165,7 +181,7 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
       }
   }
 
-  private def getLastModifiedTimestamp(depositDirPath: Path): String = {
+  private def getLastModifiedTimestamp(depositDirPath: Path): Option[DateTime] = {
     if (!Files.isReadable(depositDirPath)) {
       logger.error(s"ERROR: cannot read $depositDirPath")
       throw new NotReadableException(depositDirPath)
@@ -181,8 +197,8 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
     managed(Files.list(depositDirPath)).acquireAndGet { files =>
       files.map[Long](Files.getLastModifiedTime(_).toInstant.toEpochMilli)
         .max(LongComparator)
-        .map[String](millis => new DateTime(millis, DateTimeZone.UTC).toString(dateTimeFormatter))
-        .orElse("n/a")
+        .map[DateTime](millis => new DateTime(millis, DateTimeZone.UTC))
+        .toOption
     }
   }
 
@@ -218,9 +234,7 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
     Option(depositProperties.getString("identifier.doi")).orElse {
       managed(Files.list(depositDirPath)).acquireAndGet { files =>
         files.iterator().asScala.toStream
-          .collectFirst { case bagDir if Files.isDirectory(bagDir) =>
-            bagDir.resolve("metadata/dataset.xml")
-          }
+          .collectFirst { case bagDir if Files.isDirectory(bagDir) => bagDir.resolve("metadata/dataset.xml") }
           .flatMap {
             case datasetXml if Files.exists(datasetXml) => Try {
               val docElement = XML.loadFile(datasetXml.toFile)
@@ -231,7 +245,6 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
       }
     }
   }
-
 
   private def findDoi(identifiers: NodeSeq): Option[String] = {
     identifiers.find { id =>
@@ -298,8 +311,6 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
     }
   }
 
-
-
   private def formatStorageSize(nBytes: Long): String = {
     def formatSize(unitSize: Long, unit: String): String = {
       f"${ nBytes / unitSize.toFloat }%8.1f $unit"
@@ -316,16 +327,16 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
     f"${ filterOnState }%-10s : ${ deposits.size }%5d (${ formatStorageSize(deposits.map(_.storageSpace).sum) })"
   }
 
-  def summary(depositor: Option[DepositorId] = None): Try[String] = Try {
-    val sword2Deposits = collectDataFromDepositsDir(sword2DepositsDir, depositor)
-    val ingestFlowDeposits = collectDataFromDepositsDir(ingestFlowInbox, depositor)
+  def summary(depositor: Option[DepositorId], age: Option[Age]): Try[String] = Try {
+    val sword2Deposits = collectDataFromDepositsDir(sword2DepositsDir, depositor, age)
+    val ingestFlowDeposits = collectDataFromDepositsDir(ingestFlowInbox, depositor, age)
     outputSummary(sword2Deposits ++ ingestFlowDeposits, depositor)
     "End of summary report."
   }
 
-  def createFullReport(depositor: Option[DepositorId]): Try[String] = Try {
-    val sword2Deposits = collectDataFromDepositsDir(sword2DepositsDir, depositor)
-    val ingestFlowDeposits = collectDataFromDepositsDir(ingestFlowInbox, depositor)
+  def createFullReport(depositor: Option[DepositorId], age: Option[Age]): Try[String] = Try {
+    val sword2Deposits = collectDataFromDepositsDir(sword2DepositsDir, depositor, age)
+    val ingestFlowDeposits = collectDataFromDepositsDir(ingestFlowInbox, depositor, age)
     outputFullReport(sword2Deposits ++ ingestFlowDeposits)
     "End of full report."
   }
@@ -340,6 +351,4 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
     deleteDepositFromDepositsDir(ingestFlowInbox, depositor, age, state, onlyData)
     "Execution of clean: success "
   }
-
 }
-
