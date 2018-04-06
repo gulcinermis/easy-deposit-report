@@ -6,9 +6,9 @@ easy-manage-deposit
 SYNOPSIS
 --------
    
-     easy-manage-deposit report full [<depositor>]
-     easy-manage-deposit report summary [<depositor>]
-     easy-manage-deposit clean --data-only --state [<state>] --keep [<n>][<depositor>]
+     easy-manage-deposit report full [-a, --age <n>] [<depositor>]
+     easy-manage-deposit report summary [-a, --age <n>] [<depositor>]
+     easy-manage-deposit clean [-d, --data-only] [-s, --state <state>] [-k, --keep <n>] [<depositor>]
      easy-manage-deposit retry [<depositor>]
      
          
@@ -20,43 +20,49 @@ ARGUMENTS
                 --version   Show version of this program
         
           Subcommand: report
-                  --help   Show help message
+                --help   Show help message
           
-            Subcommand: report full - creates a full report for depositor(optional)
-                  --help   Show help message
+          Subcommand: report full - creates a full report for depositor(optional)
+            -a, --age  <arg>   Only report on the deposits that are less than n days old.
+                               An age argument of n=0 days corresponds to 0<=n<1. If this
+                               argument is not provided, all deposits will be reported on.
+                --help         Show help message
           
-             trailing arguments:
-              depositor (not required)
-            ---
+           trailing arguments:
+            depositor (not required)
+          ---
           
-            Subcommand: report summary - creates a summary report for depositor(optional)
-                  --help   Show help message
+          Subcommand: report summary - creates a summary report for depositor(optional)
+            -a, --age  <arg>   Only report on the deposits that are less than n days old.
+                               An age argument of n=0 days corresponds to 0<=n<1. If this
+                               argument is not provided, all deposits will be reported on.
+                --help         Show help message
           
-             trailing arguments:
-              depositor (not required)
-            ---
-            Subcommand: clean
-              -d, --data-only      If specified, the deposit.properties and the container
-                                   file of the deposit are not deleted
-              -k, --keep  <arg>    The deposits whose ages are strictly greater than the
-                                   argument n (days) are deleted. An age argument of n=0
-                                   days corresponds to 0<=n<1. The default case is set to
-                                   n=-1, so that the deposits that are younger than 1 day
-                                   are not skipped in the default case. (default = -1)
-              -s, --state  <arg>   The deposits with the specified state argument are
-                                   deleted (default = DRAFT)
-                  --help           Show help message
+           trailing arguments:
+            depositor (not required)
+          ---
+          Subcommand: clean - removes deposit with specified state
+            -d, --data-only      If specified, the deposit.properties and the container
+                                 file of the deposit are not deleted
+            -k, --keep  <arg>    The deposits whose ages are strictly greater than the
+                                 argument n (days) are deleted. An age argument of n=0
+                                 days corresponds to 0<=n<1. The default case is set to
+                                 n=-1, so that the deposits that are younger than 1 day
+                                 are not skipped in the default case. (default = -1)
+            -s, --state  <arg>   The deposits with the specified state argument are
+                                 deleted (default = DRAFT)
+                --help           Show help message
           
-             trailing arguments:
-              depositor (not required)
-            ---
+           trailing arguments:
+            depositor (not required)
+          ---
           
-            Subcommand: retry
-                  --help   Show help message
+          Subcommand: retry
+                --help   Show help message
           
-             trailing arguments:
-              depositor (not required)
-     ---
+           trailing arguments:
+            depositor (not required)
+          ---
     
      
 DESCRIPTION

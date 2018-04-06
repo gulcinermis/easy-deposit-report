@@ -20,7 +20,9 @@ fi
 
 DATE=$(date +%Y-%m-%d)
 REPORT_SUMMARY=/tmp/report-summary-${EASY_ACCOUNT:-all}-$DATE.txt
+REPORT_SUMMARY_24=/tmp/report-summary-${EASY_ACCOUNT:-all}-yesterday-$DATE.txt
 REPORT_FULL=/tmp/report-full-${EASY_ACCOUNT:-all}-$DATE.csv
+REPORT_FULL_24=/tmp/report-full-${EASY_ACCOUNT:-all}-yesterday-$DATE.csv
 
 
 if [ "$FROM" == "" ]; then
@@ -50,15 +52,26 @@ exit_if_failed() {
 }
 
 echo -n "Creating summary report for ${EASY_ACCOUNT:-all depositors}..."
-/opt/dans.knaw.nl/easy-manage-deposit/bin/easy-manage-deposit summary $EASY_ACCOUNT > $REPORT_SUMMARY
+/opt/dans.knaw.nl/easy-manage-deposit/bin/easy-manage-deposit report summary $EASY_ACCOUNT > $REPORT_SUMMARY
 exit_if_failed "summary report failed"
+
+echo -n "Creating summary report from the last 24 hours for ${EASY_ACCOUNT:-all depositors}..."
+/opt/dans.knaw.nl/easy-manage-deposit/bin/easy-manage-deposit report summary --age 0 $EASY_ACCOUNT > $REPORT_SUMMARY_24
+exit_if_failed "summary report failed"
+
 echo -n "Creating full report for ${EASY_ACCOUNT:-all depositors}..."
-/opt/dans.knaw.nl/easy-manage-deposit/bin/easy-manage-deposit full $EASY_ACCOUNT > $REPORT_FULL
+/opt/dans.knaw.nl/easy-manage-deposit/bin/easy-manage-deposit report full $EASY_ACCOUNT > $REPORT_FULL
+exit_if_failed "full report failed"
+
+echo -n "Creating full report from the last 24 hours for ${EASY_ACCOUNT:-all depositors}..."
+/opt/dans.knaw.nl/easy-manage-deposit/bin/easy-manage-deposit report full --age 0 $EASY_ACCOUNT > $REPORT_FULL_24
 exit_if_failed "full report failed"
 
 echo "Status of $EASY_HOST deposits d.d. $(date) for depositor: ${EASY_ACCOUNT:-all}" | \
 mail -s "$EASY_HOST Report: status of EASY deposits (${EASY_ACCOUNT:-all depositors})" \
      -a $REPORT_SUMMARY \
+     -a $REPORT_SUMMARY_24 \
      -a $REPORT_FULL \
+     -a $REPORT_FULL_24 \
      $BCC_EMAILS $FROM_EMAIL $TO
 exit_if_failed "sending of e-mail failed"

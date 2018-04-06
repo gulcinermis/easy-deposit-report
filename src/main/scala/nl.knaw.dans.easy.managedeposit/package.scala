@@ -16,6 +16,7 @@
 package nl.knaw.dans.easy
 
 import java.nio.file.{ Files, Path }
+import java.util.Optional
 
 import org.joda.time.format.{ DateTimeFormatter, ISODateTimeFormat }
 import resource._
@@ -27,6 +28,7 @@ package object managedeposit {
   type DepositId = String
   type Deposits = Seq[Deposit]
   type DepositorId = String
+  type Age = Int
 
   val XML_NAMESPACE_XSI = "http://www.w3.org/2001/XMLSchema-instance"
   val XML_NAMESPACE_ID_TYPE = "http://easy.dans.knaw.nl/schemas/vocab/identifier-type/"
@@ -37,5 +39,9 @@ package object managedeposit {
     def list[T](f: List[Path] => T): T = {
       managed(Files.list(path)).acquireAndGet(stream => f(stream.iterator().asScala.toList))
     }
+  }
+
+  implicit class Optional2Option[T](val opt: Optional[T]) extends AnyVal {
+    def toOption: Option[T] = opt.map[Option[T]](Option(_)).orElse(None)
   }
 }
