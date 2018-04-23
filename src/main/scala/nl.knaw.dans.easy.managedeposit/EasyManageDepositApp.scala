@@ -267,6 +267,7 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
     val archived = selectedDeposits.filter(_.state == "ARCHIVED").toList
     val rejected = selectedDeposits.filter(_.state == "REJECTED").toList
     val failed = selectedDeposits.filter(_.state == "FAILED").toList
+    val unknown = selectedDeposits.filter(_.state == null).toList
 
     val now = Calendar.getInstance().getTime
     val format = new SimpleDateFormat("yyyy-MM-dd")
@@ -287,6 +288,7 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
     println(formatCountAndSize(archived, "ARCHIVED"))
     println(formatCountAndSize(rejected, "REJECTED"))
     println(formatCountAndSize(failed, "FAILED"))
+    println(formatCountAndSize(unknown, null))
     println()
   }
 
@@ -324,7 +326,12 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
   }
 
   private def formatCountAndSize(deposits: List[Deposit], filterOnState: String): String = {
-    f"${ filterOnState }%-10s : ${ deposits.size }%5d (${ formatStorageSize(deposits.map(_.storageSpace).sum) })"
+
+    var stateFilter = filterOnState
+    if(filterOnState == null)
+      stateFilter = "**UNKNOWN*"
+
+    f"${ stateFilter }%-10s : ${ deposits.size }%5d (${ formatStorageSize(deposits.map(_.storageSpace).sum) })"
   }
 
   def summary(depositor: Option[DepositorId], age: Option[Age]): Try[String] = Try {
