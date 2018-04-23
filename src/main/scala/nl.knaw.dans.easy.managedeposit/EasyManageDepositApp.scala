@@ -75,11 +75,11 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
         debug(s"Getting info from $depositDirPath")
 
         if (!Files.isReadable(depositDirPath)) {
-          logger.error(s"ERROR: cannot read $depositDirPath")
+          logger.error(s"cannot read $depositDirPath")
           throw new NotReadableException(depositDirPath)
         }
         else if (!Files.isReadable(depositPropertiesFilePath)) {
-          logger.error(s"ERROR: cannot read $depositPropertiesFilePath")
+          logger.error(s"cannot read $depositPropertiesFilePath")
           throw new NotReadableException(depositPropertiesFilePath)
         }
 
@@ -116,11 +116,11 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
       .foreach { depositDirPath =>
         val depositPropertiesFilePath = depositDirPath.resolve("deposit.properties")
         if (!Files.isReadable(depositDirPath)) {
-          logger.error(s"ERROR: cannot read $depositDirPath")
+          logger.error(s"cannot read $depositDirPath")
           throw new NotReadableException(depositDirPath)
         }
         else if (!Files.isReadable(depositPropertiesFilePath)) {
-          logger.error(s"ERROR: cannot read $depositPropertiesFilePath")
+          logger.error(s"cannot read $depositPropertiesFilePath")
           throw new NotReadableException(depositPropertiesFilePath)
         }
 
@@ -139,7 +139,7 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
               //TODO Is the following readability check required here ??
                 if (!Files.isReadable(file.toPath)) {
                   val filePath = file.toPath
-                  logger.error(s"ERROR: cannot read $filePath")
+                  logger.error(s"cannot read $filePath")
                   throw new NotReadableException(filePath)
                 }
               logger.info(s"DELETE data from deposit for $depositorId from $depositState $depositDirPath")
@@ -159,11 +159,11 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
       .foreach { depositDirPath =>
         val depositPropertiesFilePath = depositDirPath.resolve("deposit.properties")
         if (!Files.isReadable(depositDirPath)) {
-          logger.error(s"ERROR: cannot read $depositDirPath")
+          logger.error(s"cannot read $depositDirPath")
           throw new NotReadableException(depositDirPath)
         }
         else if (!Files.isReadable(depositPropertiesFilePath)) {
-          logger.error(s"ERROR: cannot read $depositPropertiesFilePath")
+          logger.error(s"cannot read $depositPropertiesFilePath")
           throw new NotReadableException(depositPropertiesFilePath)
         }
         val depositProperties = readDepositProperties(depositDirPath)
@@ -183,13 +183,13 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
 
   private def getLastModifiedTimestamp(depositDirPath: Path): Option[DateTime] = {
     if (!Files.isReadable(depositDirPath)) {
-      logger.error(s"ERROR: cannot read $depositDirPath")
+      logger.error(s"cannot read $depositDirPath")
       throw new NotReadableException(depositDirPath)
     }
     managed(Files.list(depositDirPath)).acquireAndGet { files =>
       files.forEach(file => if (!Files.isReadable(file.toRealPath())) {
         val pathOfAZipFileOrPropFileInDepositDirPath = file.toRealPath()
-        logger.error(s"ERROR: cannot read $pathOfAZipFileOrPropFileInDepositDirPath")
+        logger.error(s"cannot read $pathOfAZipFileOrPropFileInDepositDirPath")
         throw new NotReadableException(pathOfAZipFileOrPropFileInDepositDirPath)
       }
       )
@@ -204,13 +204,13 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
 
   private def getDoi(depositProperties: PropertiesConfiguration, depositDirPath: Path): Option[String] = {
     if (!Files.isReadable(depositDirPath)) {
-      logger.error(s"ERROR: cannot read $depositDirPath")
+      logger.error(s"cannot read $depositDirPath")
       throw new NotReadableException(depositDirPath)
     }
     managed(Files.list(depositDirPath)).acquireAndGet { files =>
       files.forEach(file => if (!Files.isReadable(file.toRealPath())) {
         val pathOfAZipFileOrPropFileInDepositDirPath = file.toRealPath()
-        logger.error(s"ERROR: cannot read $pathOfAZipFileOrPropFileInDepositDirPath")
+        logger.error(s"cannot read $pathOfAZipFileOrPropFileInDepositDirPath")
         throw new NotReadableException(pathOfAZipFileOrPropFileInDepositDirPath)
       }
       )
@@ -219,13 +219,13 @@ class EasyManageDepositApp(configuration: Configuration) extends DebugEnhancedLo
       files.iterator().asScala.toStream
         .collectFirst { case bagDir if Files.isDirectory(bagDir) =>
           if (!Files.isReadable(bagDir)) {
-            logger.error(s"ERROR: cannot read $bagDir")
+            logger.error(s"cannot read $bagDir")
             throw new NotReadableException(bagDir)
           }
           if (Files.isReadable(bagDir)) {
             if (!Files.isReadable(bagDir.resolve("metadata/dataset.xml"))) {
               val pathOfDatasetXml = bagDir.resolve("metadata/dataset.xml")
-              logger.error(s"ERROR: cannot read $pathOfDatasetXml")
+              logger.error(s"cannot read $pathOfDatasetXml")
               throw new NotReadableException(pathOfDatasetXml)
             }
           }
